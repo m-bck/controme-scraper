@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "controme-scraper"
+version = "0.1.0"
+description = "Python client library for Controme Smart-Heat-OS heating control systems"
+readme = "README_PYPI.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Maximilian Bick", email = "maxibick@users.noreply.github.com"}
+]
+keywords = ["controme", "heating", "smart-home", "home-automation", "api-client"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Home Automation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "pycryptodome>=3.19.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "ruff>=0.0.285",
+]
+
+[project.urls]
+Homepage = "https://github.com/maxibick/controme_scraper"
+Documentation = "https://github.com/maxibick/controme_scraper#readme"
+Repository = "https://github.com/maxibick/controme_scraper"
+"Bug Tracker" = "https://github.com/maxibick/controme_scraper/issues"
+
+[tool.setuptools]
+packages = ["controme_scraper", "controme_scraper.encryption_utils", "controme_scraper.scraper", "controme_scraper.classes"]
+
+[tool.setuptools.package-data]
+controme_scraper = ["py.typed"]
+
+[tool.black]
+line-length = 120
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
