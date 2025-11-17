@@ -42,10 +42,10 @@ for room in rooms:
 # Set target temperature for a room
 controller.web_client.set_room_temperature(room_id=1, temperature=22.5)
 
-# Get system overview
-system = controller.get_system_data()
-print(f"Heating demand: {system.heating_demand}%")
-print(f"Rooms heating: {system.rooms_heating_count}/{system.total_rooms}")
+# Get sensors
+sensors = controller.get_sensors()
+for sensor in sensors:
+    print(f"{sensor.name}: {sensor.value}{sensor.unit}")
 ```
 
 ## Core Components
@@ -61,17 +61,30 @@ controller = ContromeController(host, username, password, house_id=1)
 rooms = controller.get_rooms()              # List[Room]
 thermostats = controller.get_thermostats()  # List[Thermostat]
 sensors = controller.get_sensors()          # List[Sensor]
-gateway = controller.get_gateway()          # Gateway (system status)
+
+# Access individual items
+room = controller.get_room(room_id=1)       # Single Room
+thermostat = controller.get_thermostat(device_num=1)  # Single Thermostat
 ```
 
 ### Models
 
 All data is returned as typed Python dataclasses:
 
-- **Room**: Complete room data with temperatures, valves, sensors
+- **Room**: Complete room data with temperatures, valves, heating status
+  - `current_temperature`, `target_temperature`, `offset_temperature`
+  - `valve_positions`, `max_valve_positions`, `return_flow_temperatures`
+  - `is_heating`, `average_valve_position`
 - **Thermostat**: Thermostat device with configuration and status
-- **Sensor**: Temperature/humidity sensors with current readings
-- **Gateway**: System gateway with overall status and metrics
+  - `name`, `device_num`, `current_temperature`
+  - `assigned_room_id`, `room_name`, `floor_name`
+  - Full configuration options (12 parameters)
+- **Sensor**: Temperature/humidity/brightness sensors
+  - `name`, `value`, `unit`, `sensor_type`
+  - Types: temperature, humidity, brightness, return_flow
+- **Gateway**: System gateway for calculating heating demand
+  - `system_average_valve_position`, `max_system_demand`
+  - `rooms_heating_count`, `total_rooms`
 
 ### WebClient
 
@@ -80,13 +93,19 @@ Low-level API client for direct HTTP requests:
 ```python
 client = controller.web_client
 
-# Temperature control
+# Temperature control (0.5°C precision)
 client.set_room_temperature(room_id=1, temperature=22.5)
 
-# Raw API access
-thermostats = client.get_thermostats()      # JSON response
-rooms = client.get_rooms()                  # JSON response
-sensors = client.get_sensors()              # JSON response
+# Get parsed data (returns Model objects)
+rooms = client.get_rooms()                  # List[Room]
+thermostats = client.get_thermostats()      # List[Thermostat]
+sensors = client.get_sensors()              # List[Sensor]
+
+# Get gateway hardware configuration
+max_positions = client.get_gateway_hardware()  # dict[int, int]
+
+# Get actuator configuration mappings
+room_output_map, rl_output_map = client.get_actuator_config(house_id=1)
 ```
 
 ## Multi-House Support
@@ -131,15 +150,17 @@ except Exception as e:
 
 ## Use Cases
 
-- **Home Assistant Integration** - Build custom components
-- **Automation Scripts** - Create temperature schedules
-- **Monitoring** - Track heating performance
-- **Analytics** - Analyze heating patterns and efficiency
+- **Home Assistant Integration** - Build custom climate entities and sensors
+- **Automation Scripts** - Create temperature schedules based on time or presence
+- **Monitoring** - Track heating performance and valve positions over time
+- **Analytics** - Analyze heating patterns, efficiency, and hydraulic balancing
+- **Energy Management** - Calculate heating demand and optimize system performance
+- **Multi-House Management** - Control multiple properties from one script
 
 ## Home Assistant Integration
 
 For a ready-to-use Home Assistant integration, see:
-[controme_ha](https://github.com/maxibick/controme_ha)
+[controme_ha](https://github.com/m-bck/controme_ha)
 
 ## Legal Notice
 
@@ -153,7 +174,7 @@ This library accesses the **local web interface** of your Controme heating contr
 
 **Recommended:** Use only for personal, non-commercial purposes in your own home.
 
-For official API access, contact: [Controme GmbH](https://controme.com/api)
+For official API access, contact: [Controme GmbH](https://support.controme.com/api)
 
 ## License
 
@@ -165,7 +186,8 @@ Contributions are welcome! Please open an issue or pull request on GitHub.
 
 ## Links
 
-- **GitHub Repository**: https://github.com/maxibick/controme_scraper
-- **Home Assistant Integration**: https://github.com/maxibick/controme_ha
+- **GitHub Repository**: https://github.com/m-bck/controme-scraper
+- **Home Assistant Integration**: https://github.com/m-bck/controme_ha
+- **PyPI Package**: https://pypi.org/project/controme-scraper/
 - **Controme Official Website**: https://www.controme.com/
 - **Controme Official API**: https://controme.com/api

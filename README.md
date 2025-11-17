@@ -15,7 +15,7 @@ This integration accesses your **local** Controme system through its web interfa
 - ✅ **For personal use only** - Use at your own risk
 - ✅ **Your own system** - Only access systems you own
 - ⚠️ **No warranty** - The author is not responsible for any damage or issues
-- ℹ️ **Official API available** - Controme offers an official API: https://controme.com/api
+- ℹ️ **Official API available** - Controme offers an official API: https://support.controme.com/api
 
 **"Controme" and "Smart-Heat-OS" are trademarks of Controme GmbH.**
 
@@ -30,7 +30,7 @@ pip install controme-scraper
 Or for development:
 
 ```bash
-git clone https://github.com/m-bck/controme_scraper.git
+git clone https://github.com/m-bck/controme-scraper.git
 cd controme_scraper
 pip install -e .
 ```
