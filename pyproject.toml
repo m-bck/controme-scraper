@@ -42,10 +42,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/m-bck/controme_scraper"
-Documentation = "https://github.com/m-bck/controme_scraper#readme"
-Repository = "https://github.com/m-bck/controme_scraper"
-"Bug Tracker" = "https://github.com/m-bck/controme_scraper/issues"
+Homepage = "https://github.com/m-bck/controme-scraper"
+Documentation = "https://github.com/m-bck/controme-scraper#readme"
+Repository = "https://github.com/m-bck/controme-scraper"
+"Bug Tracker" = "https://github.com/m-bck/controme-scraper/issues"
 
 [tool.setuptools]
 packages = ["controme_scraper", "controme_scraper.encryption_utils"]

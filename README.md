@@ -130,7 +130,7 @@ For detailed API documentation and advanced usage, see [README_PYPI.md](README_P
 
 ```bash
 # Clone repository
-git clone https://github.com/m-bck/controme_scraper.git
+git clone https://github.com/m-bck/controme-scraper.git
 cd controme_scraper
 
 # Create virtual environment
@@ -158,8 +158,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 📧 Support
 
-- **Issues**: https://github.com/m-bck/controme_scraper/issues
-- **Repository**: https://github.com/m-bck/controme_scraper
+- **Issues**: https://github.com/m-bck/controme-scraper/issues
+- **Repository**: https://github.com/m-bck/controme-scraper
 
 ## ⚠️ Disclaimer
 
