@@ -2,10 +2,9 @@
 
 **UNOFFICIAL** Python client library for Controme Smart-Heat-OS heating control systems.
 
-> 🔄 **Repository Split**: This repository now contains only the Python library. For the Home Assistant integration, see: [controme_ha](https://github.com/maxibick/controme_ha)  
-**Not affiliated with, endorsed by, or supported by Controme GmbH.**
+> 🔄 **Repository Split**: This repository contains only the Python library. For the Home Assistant integration, see: [controme_ha](https://github.com/m-bck/controme_ha)
 
-Python-Bibliothek und Home Assistant Custom Component für Controme Smart-Heat-OS Heizungssteuerungen.
+**Not affiliated with, endorsed by, or supported by Controme GmbH.**
 
 ---
 
@@ -22,123 +21,21 @@ This integration accesses your **local** Controme system through its web interfa
 
 ---
 
-## 🏠 Home Assistant Integration
-
-Die vollständige Custom Component befindet sich in `custom_components/controme/`.
-
-### Schnellstart
-
-```bash
-pip install -e .
-```
-
-Siehe [HOMEASSISTANT_INTEGRATION.md](HOMEASSISTANT_INTEGRATION.md) für Details.
-
-## 📦 Python Bibliothek
-
-Das `controme_scraper` Modul kann auch standalone verwendet werden:
-
-```python
-from controme_scraper import ContromeController
-
-controller = ContromeController(
-    host="http://192.168.1.10",
-    username="user",
-    password="pass"
-)
-
-# Räume abrufen
-rooms = controller.get_rooms()
-for room in rooms:
-    print(f"{room.name}: {room.current_temperature}°C → {room.target_temperature}°C")
-
-# System-Heizbedarf
-from controme_scraper.models import Gateway
-gateway = Gateway(gateway_id="main", name="Gateway", rooms=rooms)
-print(f"Heizbedarf: {gateway.system_average_valve_position}%")
-```
-
-## 📁 Projekt-Struktur
-
-```
-controme_scraper/              # Python Library (Core)
-├── heizung.py                 # Main Controller API
-├── models.py                  # Data Models (Room, Thermostat, etc.)
-├── parsers.py                 # HTML Parser für AJAX Endpoints
-├── web_client.py              # HTTP Client
-└── session_manager.py         # Session Management mit Verschlüsselung
-
-custom_components/controme/    # Home Assistant Integration
-├── manifest.json              # Integration Metadata
-├── __init__.py                # Setup & Entry Management
-├── config_flow.py             # UI Configuration
-├── coordinator.py             # Data Update Coordinator
-├── climate.py                 # Climate Entities (Räume)
-├── sensor.py                  # System Sensors
-└── controme_scraper/          # Library (embedded)
-
-tests/                         # Test-Skripte
-├── test_ha_models.py          # Test der HA-optimierten Models
-├── test_room_parser.py        # Test des Room Parsers
-└── test_system_demand.py      # Test des System-Heizbedarfs
-
-archive/                       # Alte Entwicklungs-Skripte
-```
-
-## Installation
+## 📦 Installation
 
 ```bash
 pip install controme-scraper
 ```
 
-## Features
-
-- 🔐 **Session Management** - Automatic login and session handling
-- 🌡️ **Temperature Control** - Read and set target temperatures
-- 📊 **Real-time Data** - Current temperatures, valve positions, heating status
-- 🏠 **Multi-House Support** - Manage multiple houses
-- 📈 **System Metrics** - Heating demand, boiler status, sensor data
-- 🔧 **Complete Models** - Full Python dataclasses for all entities
-- 📦 **Type Hints** - Full type annotation support
-
-## 🚀 Installation
-
-### Requirements
+Or for development:
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/m-bck/controme_scraper.git
+cd controme_scraper
+pip install -e .
 ```
 
-### Credentials (macOS Keychain)
-
-```bash
-python setup_credentials.py
-```
-
-Oder manuell in Python:
-```python
-import keyring
-keyring.set_password('controme_scraper', 'host', 'http://192.168.1.10')
-keyring.set_password('controme_scraper', 'user', 'username')
-keyring.set_password('controme_scraper', 'password', 'password')
-```
-
-## 🧪 Tests
-
-```bash
-# Test der Models und Parser
-python test_ha_models.py
-
-# Test des System-Heizbedarfs
-python test_system_demand.py
-
-# Test des Room Parsers
-python test_room_parser.py
-```
-
-
-
-## Quick Start
+## 🚀 Quick Start
 
 ```python
 from controme_scraper import ContromeController
@@ -146,64 +43,125 @@ from controme_scraper import ContromeController
 # Initialize controller
 controller = ContromeController(
     host="http://192.168.1.10",
-    username="your_username",
+    username="admin",
     password="your_password",
     house_id=1
 )
 
-# Get all rooms with data
+# Get all rooms
 rooms = controller.get_rooms()
 for room in rooms:
     print(f"{room.name}: {room.current_temperature}°C → {room.target_temperature}°C")
+    print(f"  Valves: {room.valve_positions}")
+    print(f"  Heating: {'ON' if room.is_heating else 'OFF'}")
 
-# Set temperature
+# Get thermostats
+thermostats = controller.get_thermostats()
+for thermostat in thermostats:
+    print(f"{thermostat.name}: {thermostat.current_temperature}°C")
+
+# Get sensors
+sensors = controller.get_sensors()
+for sensor in sensors:
+    print(f"{sensor.name}: {sensor.value}{sensor.unit}")
+
+# Set room temperature
 controller.web_client.set_room_temperature(room_id=1, temperature=22.5)
 ```
 
-## Home Assistant Integration
+## 📁 Module Structure
 
-For a ready-to-use Home Assistant integration, see: [controme_ha](https://github.com/maxibick/controme_ha)
+```
+controme_scraper/
+├── __init__.py                # Package exports
+├── controller.py              # Main ContromeController class
+├── models.py                  # Data models (Room, Thermostat, Sensor, Gateway)
+├── parsers.py                 # HTML parsers for Controme web interface
+├── web_client.py              # HTTP client for API calls
+├── session_manager.py         # Session management with encryption
+├── url_constants.py           # API endpoint URLs
+├── logging_config.py          # Logging configuration
+└── encryption_utils/          # Credential encryption utilities
 
-## Documentation
+tests/
+├── test_controller.py         # Controller tests
+├── test_models.py             # Model tests
+├── test_parsers.py            # Parser tests (with real HTML fixtures)
+├── test_web_client.py         # Web client tests
+└── fixtures/                  # Real HTML fixtures from Controme system
+```
 
-For full API documentation, see [README_PYPI.md](README_PYPI.md)
+## ✨ Features
 
-## 🛠️ Entwicklung
+- 🔐 **Session Management** - Automatic login and session handling with encrypted credentials
+- 🌡️ **Temperature Control** - Read and set target temperatures (0.5°C precision)
+- 📊 **Real-time Data** - Current temperatures, valve positions, heating status
+- 🏠 **Multi-House Support** - Manage multiple houses in one Controme system
+- 🔧 **Hydraulic Balancing** - Access max valve positions from gateway hardware config
+- 📈 **System Metrics** - System heating demand, boiler status, return flow temperatures
+- 🏷️ **Complete Models** - Full Python dataclasses for all entities (Room, Thermostat, Sensor, Gateway)
+- 📦 **Type Hints** - Full type annotation support for modern Python development
+- 🧪 **Well Tested** - Comprehensive test suite with real HTML fixtures
 
-### Projekt-Setup
+## 🧪 Testing
 
 ```bash
-# Virtual Environment erstellen
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=controme_scraper --cov-report=term-missing
+
+# Run specific test file
+pytest tests/test_parsers.py -v
+```
+
+## 🏠 Home Assistant Integration
+
+For a ready-to-use Home Assistant custom component, see: [controme_ha](https://github.com/m-bck/controme_ha)
+
+## 📚 Documentation
+
+For detailed API documentation and advanced usage, see [README_PYPI.md](README_PYPI.md)
+
+## 🛠️ Development
+
+### Setup
+
+```bash
+# Clone repository
+git clone https://github.com/m-bck/controme_scraper.git
+cd controme_scraper
+
+# Create virtual environment
 python3 -m venv env
 source env/bin/activate
 
-# Dependencies installieren
-pip install -r requirements.txt
+# Install with dev dependencies
+pip install -e ".[dev]"
 
-# Credentials konfigurieren
-python setup_credentials.py
+# Run tests
+pytest
 ```
 
-### Nach Code-Änderungen
+### Contributing
 
-```bash
-```
+Contributions are welcome! Please ensure:
+- All tests pass: `pytest`
+- Code is formatted: `black .`
+- Type hints are included
+- Tests are added for new features
 
-## 🔧 Bekannte Limitierungen
+## 📝 License
 
-- ⚠️ **Temperatur-Steuerung** nur lesend (API Endpoint für Schreiben fehlt noch)
-- ⚠️ **Preset-Modi** noch nicht extrahiert (in Room HTML vorhanden)
-- ⚠️ **Gateway Info** (Firmware, etc.) noch nicht implementiert
-
-## 📝 Lizenz
-
-MIT License
-
-## 🙏 Danksagung
-
-Entwickelt für Controme Smart-Heat-OS Heizungssteuerungen.
+MIT License - see [LICENSE](LICENSE) for details.
 
 ## 📧 Support
 
-- **Issues**: https://github.com/maxibick/controme_scraper/issues
-- **Repository**: https://github.com/maxibick/controme_scraper
+- **Issues**: https://github.com/m-bck/controme_scraper/issues
+- **Repository**: https://github.com/m-bck/controme_scraper
+
+## ⚠️ Disclaimer
+
+This is an unofficial library and is not affiliated with, endorsed by, or supported by Controme GmbH.
+Use at your own risk. See [DISCLAIMER.md](DISCLAIMER.md) for full details.
