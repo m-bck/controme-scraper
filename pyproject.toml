@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "controme-scraper"
-version = "0.1.2"
+version = "0.2.0"
 description = "Python client library for Controme Smart-Heat-OS heating control systems"
 readme = "README_PYPI.md"
 requires-python = ">=3.10"
@@ -39,6 +39,7 @@ dev = [
     "pytest-cov>=4.1.0",
     "black>=23.7.0",
     "ruff>=0.0.285",
+    "keyring>=24.0.0",
 ]
 
 [project.urls]
@@ -52,6 +53,11 @@ packages = ["controme_scraper", "controme_scraper.encryption_utils"]
 
 [tool.setuptools.package-data]
 controme_scraper = ["py.typed"]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests requiring a live Controme system",
+]
 
 [tool.black]
 line-length = 120

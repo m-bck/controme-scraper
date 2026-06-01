@@ -1,27 +1,18 @@
-#!/usr/bin/env python3
 """
-Test script for the new HomeAssistant-optimized data models and parsers.
-This demonstrates how the data will be structured for Home Assistant integration.
+Integration tests for the HomeAssistant-optimized data models.
+Requires a live Controme system and credentials stored in keyring.
 """
 
 import logging
-import keyring
-import json
-from controme_scraper.controller import ContromeController
+import pytest
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 
-def print_room_info(room):
-    """Pretty print room information"""
-    print(f"\n{'='*80}")
+def _print_room_info(room):
+    print(f"\n{'=' * 80}")
     print(f"ROOM: {room.name}")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
     print(f"  ID: {room.room_id}")
     print(f"  Unique ID (HA): {room.unique_id}")
     print(f"  Floor: {room.floor_name}")
@@ -36,11 +27,10 @@ def print_room_info(room):
         print(f"    {key}: {value}")
 
 
-def print_thermostat_info(thermostat):
-    """Pretty print thermostat information"""
-    print(f"\n{'='*80}")
+def _print_thermostat_info(thermostat):
+    print(f"\n{'=' * 80}")
     print(f"THERMOSTAT: {thermostat.name}")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
     print(f"  Device ID: {thermostat.device_id}")
     print(f"  Unique ID (HA): {thermostat.unique_id}")
     print(f"  MAC Address: {thermostat.mac_address}")
@@ -65,138 +55,66 @@ def print_thermostat_info(thermostat):
         print(f"    {key}: {value}")
 
 
-def print_sensor_info(sensor):
-    """Pretty print sensor information"""
-    print(f"  • {sensor.name}: {sensor.value}{sensor.unit} (Room: {sensor.room_name})")
+def _print_sensor_info(sensor):
+    print(f"  - {sensor.name}: {sensor.value}{sensor.unit} (Room: {sensor.room_name})")
 
 
-def main():
-    """Main function"""
-    print("\n" + "="*80)
-    print("CONTROME - HOME ASSISTANT INTEGRATION TEST")
-    print("="*80)
-    
-    # Load credentials
-    host = keyring.get_password("controme_scraper", "host")
-    user = keyring.get_password("controme_scraper", "user")
-    password = keyring.get_password("controme_scraper", "password")
-    
-    if not all([host, user, password]):
-        logger.error("Credentials not found in Keychain. Please run setup_credentials.py first.")
-        return
-    
-    # Initialize controller
-    logger.info("Initializing Controme Controller...")
-    controller = ContromeController(host=host, username=user, password=password)
-    
-    # Test menu
-    print("\nWhat would you like to test?")
-    print("  1. Get all rooms")
-    print("  2. Get all thermostats")
-    print("  3. Get all sensors")
-    print("  4. Get everything")
-    print("  5. Export to JSON (for Home Assistant)")
-    
-    choice = input("\nEnter choice (1-5): ").strip()
-    
-    if choice in ['1', '4']:
-        print(f"\n{'='*80}")
-        print("FETCHING ROOMS...")
-        print(f"{'='*80}")
-        rooms = controller.get_rooms()
-        logger.info(f"Found {len(rooms)} rooms")
-        
-        for room in rooms:
-            print_room_info(room)
-    
-    if choice in ['2', '4']:
-        print(f"\n{'='*80}")
-        print("FETCHING THERMOSTATS...")
-        print(f"{'='*80}")
-        thermostats = controller.get_thermostats()
-        logger.info(f"Found {len(thermostats)} thermostats")
-        
-        for thermostat in thermostats:
-            print_thermostat_info(thermostat)
-    
-    if choice in ['3', '4']:
-        print(f"\n{'='*80}")
-        print("FETCHING SENSORS...")
-        print(f"{'='*80}")
-        sensors = controller.get_sensors()
-        logger.info(f"Found {len(sensors)} sensors")
-        
-        print("\nSensors by room:")
-        current_room = None
-        for sensor in sorted(sensors, key=lambda s: (s.floor_name or '', s.room_name or '', s.name)):
-            if sensor.room_name != current_room:
-                current_room = sensor.room_name
-                print(f"\n{sensor.floor_name} / {sensor.room_name}:")
-            print_sensor_info(sensor)
-    
-    if choice == '5':
-        print(f"\n{'='*80}")
-        print("EXPORTING TO JSON...")
-        print(f"{'='*80}")
-        
-        rooms = controller.get_rooms()
-        thermostats = controller.get_thermostats()
-        sensors = controller.get_sensors()
-        
-        data = {
-            "rooms": [
-                {
-                    "unique_id": room.unique_id,
-                    "name": room.name,
-                    "room_id": room.room_id,
-                    "current_temperature": room.current_temperature,
-                    "target_temperature": room.target_temperature,
-                    "attributes": room.attributes,
-                }
-                for room in rooms
-            ],
-            "thermostats": [
-                {
-                    "unique_id": thermostat.unique_id,
-                    "name": thermostat.name,
-                    "device_id": thermostat.device_id,
-                    "mac_address": thermostat.mac_address,
-                    "room_name": thermostat.room_name,
-                    "current_temperature": thermostat.current_temperature,
-                    "target_temperature": thermostat.target_temperature,
-                    "device_info": thermostat.device_info,
-                    "attributes": thermostat.attributes,
-                }
-                for thermostat in thermostats
-            ],
-            "sensors": [
-                {
-                    "unique_id": sensor.unique_id,
-                    "name": sensor.name,
-                    "device_class": sensor.device_class,
-                    "state_class": sensor.state_class,
-                    "value": sensor.value,
-                    "unit": sensor.unit,
-                    "attributes": sensor.attributes,
-                }
-                for sensor in sensors
-            ]
-        }
-        
-        filename = "controme_export.json"
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False, default=str)
-        
-        print(f"\n✅ Exported to {filename}")
-        print(f"   - {len(rooms)} rooms")
-        print(f"   - {len(thermostats)} thermostats")
-        print(f"   - {len(sensors)} sensors")
-        print("\nThis JSON structure is ready for Home Assistant integration!")
-    
-    print("\n" + "="*80)
-    print("TEST COMPLETE")
-    print("="*80)
+@pytest.mark.integration
+def test_rooms(controller):
+    """Fetch all rooms and validate core model fields."""
+    rooms = controller.get_rooms()
+    logger.info(f"Found {len(rooms)} rooms")
+
+    assert rooms is not None
+    assert len(rooms) > 0
+
+    for room in rooms:
+        assert room.room_id is not None
+        assert room.name is not None
+        assert room.unique_id is not None
+        assert room.attributes is not None
+        _print_room_info(room)
 
 
-if __name__ == "__main__":
-    main()
+@pytest.mark.integration
+def test_thermostats(controller):
+    """Fetch all thermostats and validate core model fields."""
+    thermostats = controller.get_thermostats()
+    logger.info(f"Found {len(thermostats)} thermostats")
+
+    assert thermostats is not None
+    assert len(thermostats) > 0
+
+    for thermostat in thermostats:
+        assert thermostat.device_id is not None
+        assert thermostat.name is not None
+        assert thermostat.unique_id is not None
+        assert thermostat.device_info is not None
+        assert thermostat.attributes is not None
+        _print_thermostat_info(thermostat)
+
+
+@pytest.mark.integration
+def test_sensors(controller):
+    """Fetch all sensors and validate core model fields."""
+    sensors = controller.get_sensors()
+    logger.info(f"Found {len(sensors)} sensors")
+
+    assert sensors is not None
+    assert len(sensors) > 0
+
+    print("\nSensors by room:")
+    current_room = None
+    for sensor in sorted(sensors, key=lambda s: (s.floor_name or "", s.room_name or "", s.name)):
+        if sensor.room_name != current_room:
+            current_room = sensor.room_name
+            print(f"\n{sensor.floor_name} / {sensor.room_name}:")
+        _print_sensor_info(sensor)
+
+    for sensor in sensors:
+        assert sensor.unique_id is not None
+        assert sensor.name is not None
+        assert sensor.device_class is not None
+        assert sensor.state_class is not None
+        assert sensor.unit is not None
+        assert sensor.attributes is not None

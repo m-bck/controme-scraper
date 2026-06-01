@@ -1,7 +1,8 @@
-import pickle
+import json
+import os
+import requests
 from Crypto.Cipher import AES
 from Crypto.Util import Padding
-from typing import Dict, Any
 
 # LOGGING________________________________________________________________________________
 from ..logging_config import configure_logging
@@ -21,17 +22,23 @@ def encrypt_object(obj: object, key: bytes, filename: str) -> None:
         None
     """
     logger.info("encrypt file %s", filename)
-    # Serialize the object
-    obj_bytes: bytes = pickle.dumps(obj)
+    # Serialize only the session state needed for restoration
+    # Build cookies dict safely — if duplicate names exist, keep the last one
+    cookies = {}
+    for cookie in obj.cookies:
+        cookies[cookie.name] = cookie.value
+    state = {"cookies": cookies, "headers": dict(obj.headers)}
+    obj_bytes: bytes = json.dumps(state).encode("utf-8")
     # Pad the serialized bytes to a multiple of 16 bytes
     padded_bytes: bytes = Padding.pad(obj_bytes, AES.block_size)
     # Encrypt the padded bytes
     iv: bytes = AES.new(key, AES.MODE_CBC).iv
     encryptor: AES.Cipher = AES.new(key, AES.MODE_CBC, iv=iv)
-    ciphertext: bytes = iv + encryptor.encrypt(padded_bytes)
-    # Save the encrypted bytes to a file
-    with open(filename, "wb") as f:
-        f.write(ciphertext)
+    encrypted_bytes: bytes = encryptor.encrypt(padded_bytes)
+    # Save the encrypted bytes to a file with owner-only permissions (mode 0o600)
+    fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(iv + encrypted_bytes)
 
 
 def decrypt_object(key: bytes, filename: str) -> object:
@@ -56,6 +63,9 @@ def decrypt_object(key: bytes, filename: str) -> object:
     padded_data: bytes = decryptor.decrypt(encrypted_data)
     # Unpad the padded data
     unpadded_data: bytes = Padding.unpad(padded_data, AES.block_size)
-    # Deserialize the object
-    obj: object = pickle.loads(unpadded_data)
-    return obj
+    # Reconstruct the session from the serialized state
+    state = json.loads(unpadded_data.decode("utf-8"))
+    session = requests.Session()
+    session.cookies.update(state["cookies"])
+    session.headers.update(state["headers"])
+    return session

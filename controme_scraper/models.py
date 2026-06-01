@@ -381,17 +381,6 @@ class Thermostat:
         
         return attrs
     
-    @property
-    def is_battery_powered(self) -> bool:
-        """Check if device is battery powered"""
-        return self.power_source and "Batterie" in self.power_source
-    
-    def __repr__(self) -> str:
-        heating_status = "🔥" if self.is_heating else "❄️"
-        return (f"Thermostat(id={self.device_id}, name='{self.description}', "
-                f"current={self.current_temperature}°C, target={self.target_temperature}°C, "
-                f"valves={self.average_valve_position}% {heating_status})")
-    
     def get_sensors(self) -> List[Dict[str, Any]]:
         """
         Returns list of sensor definitions for Home Assistant.
@@ -454,7 +443,7 @@ class Thermostat:
     @property
     def is_battery_powered(self) -> bool:
         """Check if device is battery powered"""
-        return self.power_source and "batterie" in self.power_source.lower()
+        return bool(self.power_source and "batterie" in self.power_source.lower())
     
     def __repr__(self) -> str:
         return (f"Thermostat(id={self.device_id}, name='{self.name}', "

@@ -47,6 +47,9 @@ class WebClient:
         try:
             response = self._session.get(f"{self._url}{url}", params=params)
             response.raise_for_status() # raise an exception for HTTP errors (4xx or 5xx)
+            if "accounts/m_login" in response.url or "Smart-Heat-OS - Login" in response.text[:500]:
+                logger.warning("Request to %s redirected to login page — session may have expired", response.url)
+                return None
             logger.debug("url: %s; response code: %s", response.url, response.status_code)
             return response.text
         except requests.exceptions.HTTPError as e:
@@ -223,36 +226,6 @@ class WebClient:
         url = f"m_setup/{self._house_id}/rf/"
         response = self._get_site(url, params=params)
         return len(response) > 0
-    
-    def set_room_temperature(self, room_id: int, temperature: float) -> bool:
-        """
-        Sets the target temperature for a room.
-        
-        Args:
-            room_id: The room ID
-            temperature: Target temperature in °C (e.g., 21.5)
-        
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        # Controme expects integer temperature (22 for 22°C)
-        # Round to nearest 0.5°C
-        temp_rounded = round(temperature * 2) / 2
-        temp_value = int(temp_rounded)
-        
-        logger.debug(f"Setting room {room_id} temperature to {temp_value}°C")
-        
-        url = f"m_raum/{room_id}/"
-        data = {"slidernumber": str(temp_value)}
-        
-        try:
-            response = self._session.post(f"{self._url}{url}", data=data)
-            response.raise_for_status()
-            logger.info(f"Successfully set room {room_id} temperature to {temp_value}°C")
-            return True
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to set room temperature: {e}")
-            return False
     
     def get_gateway_hardware(self, house_id: int = 1) -> Dict[int, int]:
         """

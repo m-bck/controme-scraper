@@ -1,8 +1,10 @@
 import logging
 
+
 def configure_logging(logger_name: str) -> logging.Logger:
     """
-    Configures a logger with a given name, sets up a StreamHandler with a specific logging format, and sets the log level to DEBUG.
+    Returns a logger for the given name. Adds a NullHandler if no handlers are
+    configured, so the library is silent by default (per logging best practices).
 
     Args:
         logger_name (str): The name of the logger to be configured.
@@ -10,14 +12,7 @@ def configure_logging(logger_name: str) -> logging.Logger:
     Returns:
         logging.Logger: The configured logger object.
     """
-
     logger = logging.getLogger(logger_name)
-    handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(name)s] [%(levelname)s] : %(message)s")
-        # logging.Formatter("%(asctime)s %(name)-12s [%(levelname)-8s] : %(message)s")
-    )
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-
+    if not logger.handlers:
+        logger.addHandler(logging.NullHandler())
     return logger

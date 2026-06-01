@@ -27,7 +27,7 @@ from .models import (
     Gateway,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "m-bck"
 __license__ = "MIT"
 

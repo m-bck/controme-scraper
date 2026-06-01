@@ -1,12 +1,15 @@
+import hashlib
+import os
+import tempfile
+
 import requests
 from bs4 import BeautifulSoup
+
 from .encryption_utils.encryption_utils import (
     decrypt_object,
     encrypt_object,
 )
 from .url_constants import Urls
-from typing import Dict, Any
-import hashlib
 
 # LOGGING________________________________________________________________________________
 from .logging_config import configure_logging
@@ -29,8 +32,7 @@ class SessionManager:
         self._session = None
 
         # secret
-        binary_string = (user + password).encode("utf-8")
-        self._key = binary_string.ljust(32, b"\x00")
+        self._key = hashlib.sha256((user + password).encode("utf-8")).digest()  # always 32 bytes
         self._session_file = self._generate_filename(user, password)
 
     def _generate_filename(self, user: str, password: str) -> str:
@@ -46,7 +48,7 @@ class SessionManager:
         """
         combined_string = user + password
         hashed_string = hashlib.sha256(combined_string.encode("utf-8")).hexdigest()
-        return f"{hashed_string}.session"
+        return os.path.join(tempfile.gettempdir(), f"controme_{hashed_string}.session")
 
     def _load_session(self) -> bool:
         """Diese Methode lädt eine vorhandene requests.Session aus einer verschlüsselten Datei oder erstellt eine neue Sitzung, wenn keine vorhanden ist. Sie gibt zurück, ob die geladene Sitzung gültig ist oder nicht.
@@ -58,9 +60,9 @@ class SessionManager:
         try:
             self._session = decrypt_object(self._key, self._session_file)
             logger.info("Session geladen")
-        except Exception:
+        except Exception as e:
+            logger.info("Could not load existing session (%s: %s), creating new one.", type(e).__name__, e)
             self._session = requests.Session()
-            logger.info("Neue Session erstellt")
 
         return self._validate_session()
 
@@ -74,11 +76,15 @@ class SessionManager:
             A validated requests.Session object.
         """
         response = self._session.get(f"{self.base_url}{self.valdidate_url}")
+        response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        title = soup.find("title").text.strip().upper().lstrip("\ufeff")
+        title_tag = soup.find("title")
+        if title_tag is None:
+            return False
+        title = title_tag.text.strip().upper().lstrip("﻿")
         compare_val = "Smart-Heat-OS - Temperaturüberwachung".strip().upper()
 
-        logger.debug(f"_validate_session :{title == compare_val}")
+        logger.debug("_validate_session: %s", title == compare_val)
         return title == compare_val
 
     def logon(self, login_url: str) -> requests.Session:
@@ -103,11 +109,10 @@ class SessionManager:
         }
         response = self._session.post(f"{self.base_url}{login_url}", data=payload)
 
-        if response.status_code == 200:
+        if response.status_code == 200 and self._session.cookies.get("sessionid") is not None:
             logger.info("Anmeldung erfolgreich")
             encrypt_object(self._session, self._key, self._session_file)
             return self._session
         else:
-            logger.error("Anmeldung fehlgeschlagen")
-            logger.error(response.text)
+            logger.error("Anmeldung fehlgeschlagen (HTTP %s, sessionid present: %s)", response.status_code, self._session.cookies.get("sessionid") is not None)
             return None

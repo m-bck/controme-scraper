@@ -1,105 +1,92 @@
-#!/usr/bin/env python3
 """
-Test script for system-wide heating demand calculation.
-Demonstrates the Gateway's system_average_valve_position attribute.
+Integration tests for system-wide heating demand calculation via the Gateway model.
+Requires a live Controme system and credentials stored in keyring.
 """
 
-from controme_scraper.controller import ContromeController
+import logging
+import pytest
+
 from controme_scraper.models import Gateway
-import keyring
-from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
-def print_separator(char='=', length=70):
-    print(char * length)
-
-
-def print_section(title):
-    print(f"\n{title}")
-    print_separator('-')
-
-
-def main():
-    # Load credentials from keychain
-    host = keyring.get_password('controme_scraper', 'host')
-    user = keyring.get_password('controme_scraper', 'user')
-    password = keyring.get_password('controme_scraper', 'password')
-    
-    # Initialize controller
-    controller = ContromeController(host=host, username=user, password=password)
-    
-    # Header
-    print_separator('=')
-    print(f"🏠 CONTROME SYSTEM HEATING DEMAND ANALYSIS")
-    print(f"⏰ Live-Abfrage: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
-    print_separator('=')
-    
-    # Get all rooms
-    print("\n📊 Lade Raumdaten...")
+@pytest.fixture(scope="module")
+def rooms_and_gateway(controller):
     rooms = controller.get_rooms()
-    
-    # Create Gateway object with rooms
     gateway = Gateway(
         gateway_id="main",
         name="Controme Gateway",
-        ip_address=host.replace("http://", "").rstrip("/"),
+        ip_address=controller.host.replace("http://", "").rstrip("/"),
         firmware_version="Unknown",
-        rooms=rooms
+        rooms=rooms,
     )
-    
-    # Display system-wide metrics
-    print_section("🔥 SYSTEM-ÜBERSICHT")
-    print(f"Gateway: {gateway.name}")
-    print(f"IP-Adresse: {gateway.ip_address}")
-    print(f"Räume gesamt: {gateway.total_rooms}")
-    print(f"Aktiv heizend: {gateway.active_heating_rooms}")
-    print(f"\n🎯 Durchschnittliche Ventilposition: {gateway.system_average_valve_position}%")
-    print(f"📈 Heizbedarf: {gateway.system_heating_demand}")
-    
-    # Display individual room details
-    print_section("📍 RAUM-DETAILS")
-    
+    return rooms, gateway
+
+
+@pytest.mark.integration
+def test_gateway_metrics(rooms_and_gateway):
+    """Verify basic gateway aggregate metrics are populated."""
+    rooms, gateway = rooms_and_gateway
+
+    assert gateway.total_rooms is not None
+    assert gateway.total_rooms == len(rooms)
+    assert gateway.active_heating_rooms is not None
+    assert 0 <= gateway.active_heating_rooms <= gateway.total_rooms
+
+    logger.info(f"Gateway: {gateway.name}, rooms={gateway.total_rooms}, heating={gateway.active_heating_rooms}")
+    print(f"\nGateway: {gateway.name}")
+    print(f"IP: {gateway.ip_address}")
+    print(f"Total rooms: {gateway.total_rooms}")
+    print(f"Active heating rooms: {gateway.active_heating_rooms}")
+
+
+@pytest.mark.integration
+def test_system_average_valve_position(rooms_and_gateway):
+    """Verify the system-wide average valve position is a valid percentage."""
+    rooms, gateway = rooms_and_gateway
+
+    avg = gateway.system_average_valve_position
+    assert avg is not None
+    assert 0 <= avg <= 100
+
+    print(f"\nSystem average valve position: {avg}%")
+    print(f"Heating demand: {gateway.system_heating_demand}")
+
+
+@pytest.mark.integration
+def test_room_valve_data(rooms_and_gateway):
+    """Verify each room exposes consistent valve position data."""
+    rooms, _ = rooms_and_gateway
+
+    assert len(rooms) > 0
+
     for room in rooms:
-        heating_icon = "🔥" if room.is_heating else "❄️"
-        print(f"\n{heating_icon} {room.name}")
-        print(f"   Ziel: {room.target_temperature}°C | Aktuell: {room.current_temperature}°C")
-        print(f"   Ventile: {room.valve_positions} → Ø {room.average_valve_position}%")
-    
-    # System statistics
-    print_section("📈 STATISTIKEN")
-    
+        print(f"\n{'Heating' if room.is_heating else 'Idle':7} | {room.name}")
+        print(f"  Target: {room.target_temperature}°C  Current: {room.current_temperature}°C")
+        print(f"  Valves: {room.valve_positions}  Avg: {room.average_valve_position}%")
+
+        assert room.valve_positions is not None
+        assert room.average_valve_position is not None
+        assert 0 <= room.average_valve_position <= 100
+
+
+@pytest.mark.integration
+def test_valve_aggregate_statistics(rooms_and_gateway):
+    """Verify cross-room valve statistics are self-consistent."""
+    rooms, gateway = rooms_and_gateway
+
     all_valves = []
     for room in rooms:
         if room.valve_positions:
             all_valves.extend(room.valve_positions)
-    
-    if all_valves:
-        print(f"Gesamtzahl Ventile: {len(all_valves)}")
-        print(f"Minimum: {min(all_valves)}%")
-        print(f"Maximum: {max(all_valves)}%")
-        print(f"Durchschnitt: {gateway.system_average_valve_position}%")
-        print(f"Offene Ventile (>0%): {sum(1 for v in all_valves if v > 0)}/{len(all_valves)}")
-    
-    # Heating recommendation
-    print_section("💡 EMPFEHLUNG")
-    
-    avg_valve = gateway.system_average_valve_position
-    if avg_valve is None:
-        print("⚠️  Keine Daten verfügbar")
-    elif avg_valve < 10:
-        print("✅ Sehr geringer Heizbedarf - Heizung könnte reduziert werden")
-    elif avg_valve < 30:
-        print("✅ Geringer Heizbedarf - Heizung läuft effizient")
-    elif avg_valve < 50:
-        print("⚠️  Mittlerer Heizbedarf - Heizung arbeitet normal")
-    elif avg_valve < 70:
-        print("🔥 Hoher Heizbedarf - Heizung könnte optimiert werden")
-    else:
-        print("🔥 Sehr hoher Heizbedarf - Vorlauftemperatur prüfen!")
-    
-    print_separator('=')
-    print()
 
+    assert len(all_valves) > 0
 
-if __name__ == "__main__":
-    main()
+    print(f"\nTotal valves: {len(all_valves)}")
+    print(f"Min: {min(all_valves)}%  Max: {max(all_valves)}%")
+    print(f"System avg: {gateway.system_average_valve_position}%")
+    print(f"Open valves (>0%): {sum(1 for v in all_valves if v > 0)}/{len(all_valves)}")
+
+    assert min(all_valves) >= 0
+    assert max(all_valves) <= 100
