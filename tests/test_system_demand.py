@@ -36,7 +36,6 @@ def test_gateway_metrics(rooms_and_gateway):
 
     logger.info(f"Gateway: {gateway.name}, rooms={gateway.total_rooms}, heating={gateway.active_heating_rooms}")
     print(f"\nGateway: {gateway.name}")
-    print(f"IP: {gateway.ip_address}")
     print(f"Total rooms: {gateway.total_rooms}")
     print(f"Active heating rooms: {gateway.active_heating_rooms}")
 

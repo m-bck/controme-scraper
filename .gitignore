@@ -29,6 +29,7 @@ htmlcov/
 
 # Local development files
 local_dev/
+diagnose_rooms.py
 
 # Session files
 *.session
