@@ -13,6 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error handling
 - Configuration options UI
 
+## [0.2.1] - 2026-06-01
+
+### Fixed
+- Replaced `pickle` with JSON serialization for session files (C2-1)
+- Session file created with owner-only permissions `0o600` (L3-1)
+- Session file stored in `tempfile.gettempdir()` instead of current working directory (L5-1)
+- AES key now derived via `hashlib.sha256` instead of null-byte padding (L6-1)
+- Login error no longer logs `response.text` — status code only (H1-2)
+- Library is now silent by default via `NullHandler` (L4-1)
+- Fixed `CookieConflictError` on duplicate `csrftoken` after login — `encrypt_object` now iterates the cookie jar directly
+- Fixed silent redirect to login page — `_get_site()` now detects and logs unauthenticated responses
+- Fixed `_load_session` swallowing exceptions silently — now logs type and message
+- Fixed `is_battery_powered` returning `None` instead of `False` when `power_source=None`
+- Removed duplicate `set_room_temperature` definition in `web_client.py`
+- Removed duplicate `is_battery_powered` and `__repr__` definitions in `models.py`
+- Added `raise_for_status()` and `None` guard to `_validate_session`
+- Added `keyring` to dev dependencies in `pyproject.toml`
+
 ## [1.0.0] - 2025-11-17
 
 ### Added
