@@ -21,7 +21,6 @@ __pycache__/
 *.html
 
 # Testing
-tests
 test.py
 .pytest_cache
 .coverage
