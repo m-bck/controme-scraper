@@ -16,7 +16,7 @@ from .logging_config import configure_logging
 logger = configure_logging(__name__)
 
 class WebClient:
-    def __init__(self, url: str, session: requests.Session, house_id: int = 1):
+    def __init__(self, url: str, session: requests.Session, house_id: int = 1, reauth_callback=None):
         """
         Initializes the WebClient with the given URL and requests.Session.
 
@@ -24,10 +24,12 @@ class WebClient:
             url (str): The base URL for making requests.
             session (requests.Session): The session for making requests.
             house_id (int): The house ID in the Controme system (default: 1).
+            reauth_callback: Optional callable that returns a fresh requests.Session after re-authentication.
         """
         self._url = url
         self._session = session
         self._house_id = house_id
+        self._reauth_callback = reauth_callback
 
     def _get_site(self, url: str, params: Dict[str, Any] = None) -> str:
         """
@@ -44,12 +46,35 @@ class WebClient:
             logger.warning("logon first.")
             return
         
+        def _is_login_page(resp: requests.Response) -> bool:
+            return "accounts/m_login" in resp.url or "Smart-Heat-OS - Login" in resp.text[:500]
+
         try:
             response = self._session.get(f"{self._url}{url}", params=params)
-            response.raise_for_status() # raise an exception for HTTP errors (4xx or 5xx)
-            if "accounts/m_login" in response.url or "Smart-Heat-OS - Login" in response.text[:500]:
-                logger.warning("Request to %s redirected to login page — session may have expired", response.url)
-                return None
+            response.raise_for_status()
+            if _is_login_page(response):
+                logger.warning("Request to %s redirected to login page — session expired, attempting re-auth", url)
+                if self._reauth_callback is not None:
+                    new_session = self._reauth_callback()
+                    if new_session is not None:
+                        self._session = new_session
+                        retry = self._session.get(f"{self._url}{url}", params=params)
+                        retry.raise_for_status()
+                        if _is_login_page(retry):
+                            raise PermissionError(
+                                f"Re-authentication succeeded but request to '{url}' still redirects to login page. "
+                                "Check credentials or Controme server state."
+                            )
+                        logger.info("Re-auth successful; retried request to %s", url)
+                        return retry.text
+                    else:
+                        raise PermissionError(
+                            f"Session expired and re-authentication failed for '{url}'. Check credentials."
+                        )
+                else:
+                    raise PermissionError(
+                        f"Request to '{url}' redirected to login page and no re-auth callback is configured."
+                    )
             logger.debug("url: %s; response code: %s", response.url, response.status_code)
             return response.text
         except requests.exceptions.HTTPError as e:

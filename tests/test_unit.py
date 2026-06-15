@@ -14,10 +14,12 @@ import tempfile
 
 import pytest
 import requests
+from unittest.mock import MagicMock, patch
 
 from controme_scraper.encryption_utils.encryption_utils import decrypt_object, encrypt_object
 from controme_scraper.logging_config import configure_logging
 from controme_scraper.models import Thermostat
+from controme_scraper.web_client import WebClient
 
 
 # ---------------------------------------------------------------------------
@@ -207,3 +209,96 @@ def test_configure_logging_no_duplicate_handlers():
 def test_configure_logging_no_stream_handler_by_default():
     logger = configure_logging("test.unit.module_d")
     assert not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.NullHandler) for h in logger.handlers)
+
+
+# ---------------------------------------------------------------------------
+# 7. WebClient session-expiry / re-auth logic
+# ---------------------------------------------------------------------------
+
+
+def _make_response(url: str, text: str, status_code: int = 200) -> MagicMock:
+    """Build a mock requests.Response."""
+    resp = MagicMock(spec=requests.Response)
+    resp.url = url
+    resp.text = text
+    resp.status_code = status_code
+    resp.raise_for_status = MagicMock()
+    return resp
+
+
+LOGIN_HTML = "<title>Smart-Heat-OS - Login</title><body>login form</body>"
+REAL_HTML = "<html><body>real data</body></html>"
+LOGIN_URL = "http://controme.local/"
+LOGIN_REDIRECT_URL = "http://controme.local/accounts/m_login/"
+
+
+def _make_web_client(session, reauth_callback=None) -> WebClient:
+    return WebClient(url=LOGIN_URL, session=session, house_id=1, reauth_callback=reauth_callback)
+
+
+def test_get_site_returns_content_on_success():
+    session = MagicMock(spec=requests.Session)
+    session.get.return_value = _make_response(url=f"{LOGIN_URL}some/path/", text=REAL_HTML)
+    client = _make_web_client(session)
+    result = client._get_site("some/path/")
+    assert result == REAL_HTML
+
+
+def test_get_site_raises_on_login_redirect_without_callback():
+    session = MagicMock(spec=requests.Session)
+    session.get.return_value = _make_response(url=LOGIN_REDIRECT_URL, text=LOGIN_HTML)
+    client = _make_web_client(session, reauth_callback=None)
+    with pytest.raises(PermissionError, match="no re-auth callback"):
+        client._get_site("some/path/")
+
+
+def test_get_site_reauths_and_retries_on_login_redirect():
+    expired_session = MagicMock(spec=requests.Session)
+    expired_session.get.return_value = _make_response(url=LOGIN_REDIRECT_URL, text=LOGIN_HTML)
+
+    fresh_session = MagicMock(spec=requests.Session)
+    fresh_session.get.return_value = _make_response(url=f"{LOGIN_URL}some/path/", text=REAL_HTML)
+
+    reauth = MagicMock(return_value=fresh_session)
+    client = _make_web_client(expired_session, reauth_callback=reauth)
+
+    result = client._get_site("some/path/")
+
+    reauth.assert_called_once()
+    assert result == REAL_HTML
+    # After re-auth the client must use the fresh session for subsequent requests
+    assert client._session is fresh_session
+
+
+def test_get_site_raises_when_retry_also_hits_login():
+    expired_session = MagicMock(spec=requests.Session)
+    expired_session.get.return_value = _make_response(url=LOGIN_REDIRECT_URL, text=LOGIN_HTML)
+
+    fresh_session = MagicMock(spec=requests.Session)
+    fresh_session.get.return_value = _make_response(url=LOGIN_REDIRECT_URL, text=LOGIN_HTML)
+
+    reauth = MagicMock(return_value=fresh_session)
+    client = _make_web_client(expired_session, reauth_callback=reauth)
+
+    with pytest.raises(PermissionError, match="still redirects to login page"):
+        client._get_site("some/path/")
+
+
+def test_get_site_raises_when_reauth_returns_none():
+    expired_session = MagicMock(spec=requests.Session)
+    expired_session.get.return_value = _make_response(url=LOGIN_REDIRECT_URL, text=LOGIN_HTML)
+
+    reauth = MagicMock(return_value=None)
+    client = _make_web_client(expired_session, reauth_callback=reauth)
+
+    with pytest.raises(PermissionError, match="re-authentication failed"):
+        client._get_site("some/path/")
+
+
+def test_get_site_detects_login_page_by_title_in_body():
+    """Covers detection via page title text even if the URL didn't change."""
+    session = MagicMock(spec=requests.Session)
+    session.get.return_value = _make_response(url=f"{LOGIN_URL}some/path/", text=LOGIN_HTML)
+    client = _make_web_client(session, reauth_callback=None)
+    with pytest.raises(PermissionError):
+        client._get_site("some/path/")

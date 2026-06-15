@@ -43,9 +43,10 @@ class ContromeController:
             password=password,
         )
         self.web_client = WebClient(
-            host, 
+            host,
             self.session_manager.logon(login_url=Urls.LOGIN.value),
-            house_id=house_id
+            house_id=house_id,
+            reauth_callback=lambda: self.session_manager.logon(login_url=Urls.LOGIN.value),
         )
 
     # New HomeAssistant-optimized methods
